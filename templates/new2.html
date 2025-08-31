@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Career Counselor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-shadow { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+        .result-card { animation: slideIn 0.5s ease-out; }
+        .typing-animation { animation: typing 2s infinite; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes typing { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.3; } }
+        .pulse-dot { animation: pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <div class="text-6xl mb-4">🤖</div>
+            <h1 class="text-4xl font-bold text-white mb-4">AI Career Counselor</h1>
+            <p class="text-xl text-white opacity-90">Tell me about your interests and I'll find your perfect career path</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-4xl mx-auto">
+            <!-- Interest Input Form -->
+            <div id="interestForm" class="bg-white rounded-2xl p-8 card-shadow mb-8">
+                <div class="text-center mb-8">
+                    <div class="text-3xl mb-4">💭</div>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-4">What are you passionate about?</h2>
+                    <p class="text-gray-600">Share your interests, hobbies, skills, or anything you enjoy doing. The more details you provide, the better recommendations I can give you!</p>
+                </div>
+                
+                <div class="mb-6">
+                    <textarea 
+                        id="interestInput" 
+                        placeholder="Tell me about your interests..."
+                        class="w-full h-40 p-6 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none resize-none text-lg leading-relaxed"
+                        maxlength="1000"
+                    ></textarea>
+                    <div class="flex justify-between items-center mt-2">
+                        <div class="text-sm text-gray-500">
+                            <span id="charCount">0</span>/1000 characters
+                        </div>
+                        <div class="text-sm text-gray-400">
+                            Examples: "I love coding and solving problems", "I enjoy helping people and working in teams"
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <button id="analyzeBtn" class="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 px-8 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Analyze My Interests 🚀
+                    </button>
+                    <p id="inputHint" class="text-gray-500 mt-4">Please tell me about your interests to get started</p>
+                </div>
+            </div>
+
+            <!-- Loading Section -->
+            <div id="loadingSection" class="hidden bg-white rounded-2xl p-8 card-shadow mb-8">
+                <div class="text-center">
+                    <div class="text-4xl mb-4 typing-animation">🤖</div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Analyzing Your Interests</h3>
+                    <p class="text-gray-600 mb-6">AI is processing your information and finding the best career matches...</p>
+                    <div class="flex justify-center space-x-2">
+                        <div class="w-3 h-3 bg-purple-500 rounded-full pulse-dot"></div>
+                        <div class="w-3 h-3 bg-blue-500 rounded-full pulse-dot" style="animation-delay: 0.2s;"></div>
+                        <div class="w-3 h-3 bg-indigo-500 rounded-full pulse-dot" style="animation-delay: 0.4s;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="hidden">
+                <div class="bg-white rounded-2xl p-8 card-shadow">
+                    <div class="text-center mb-8">
+                        <div class="text-4xl mb-4">✨</div>
+                        <h2 class="text-3xl font-bold text-gray-800 mb-4">Your Personalized Career Recommendations</h2>
+                        <p class="text-gray-600">Based on your interests, here are the careers that match your profile:</p>
+                    </div>
+                    
+                    <div id="careerResults" class="space-y-6 mb-8"></div>
+                    
+                    <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 mb-8">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3">💡 Next Steps Recommendation</h3>
+                        <div id="nextSteps" class="text-gray-700"></div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button id="startOverBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 mr-4">
+                            Try Again
+                        </button>
+                        <button id="refineBtn" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300">
+                            Refine Results
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const interestInput = document.getElementById('interestInput');
+    const charCount = document.getElementById('charCount');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const inputHint = document.getElementById('inputHint');
+    const interestForm = document.getElementById('interestForm');
+    const loadingSection = document.getElementById('loadingSection');
+    const resultsSection = document.getElementById('resultsSection');
+    const careerResults = document.getElementById('careerResults');
+    const startOverBtn = document.getElementById('startOverBtn');
+    const refineBtn = document.getElementById('refineBtn');
+
+    // Handle character count and button state
+    interestInput.addEventListener('input', () => {
+        const length = interestInput.value.length;
+        charCount.textContent = length;
+        
+        if (length >= 10) {
+            analyzeBtn.disabled = false;
+            inputHint.textContent = "Ready to analyze! Click the button below.";
+            inputHint.className = "text-green-600 mt-4";
+        } else {
+            analyzeBtn.disabled = true;
+            inputHint.textContent = "Please tell me more about your interests (at least 10 characters)";
+            inputHint.className = "text-gray-500 mt-4";
+        }
+    });
+
+    // Analyze interests via FastAPI
+    analyzeBtn.addEventListener('click', async () => {
+        const userInput = interestInput.value;
+
+        // Show loading
+        interestForm.style.display = 'none';
+        loadingSection.classList.remove('hidden');
+
+        try {
+            const response = await fetch('/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: userInput })
+            });
+
+            const data = await response.json();
+
+            // Display results
+            careerResults.innerHTML = `
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-2xl font-bold">${data.career}</h3>
+                    <p class="mt-2">${data.description}</p>
+                </div>
+            `;
+
+            loadingSection.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+
+            // Scroll to results
+            setTimeout(() => {
+                resultsSection.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+
+        } catch (error) {
+            console.error(error);
+            alert("Something went wrong! Try again.");
+            // Show input form again
+            loadingSection.classList.add('hidden');
+            interestForm.style.display = 'block';
+        }
+    });
+
+    // Start over functionality
+    startOverBtn.addEventListener('click', () => {
+        interestInput.value = '';
+        charCount.textContent = '0';
+        analyzeBtn.disabled = true;
+        inputHint.textContent = "Please tell me about your interests to get started";
+        inputHint.className = "text-gray-500 mt-4";
+        
+        resultsSection.classList.add('hidden');
+        interestForm.style.display = 'block';
+        interestForm.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // Refine results functionality
+    refineBtn.addEventListener('click', () => {
+        resultsSection.classList.add('hidden');
+        interestForm.style.display = 'block';
+        interestForm.scrollIntoView({ behavior: 'smooth' });
+    });
+</script>
+
+</body>
+</html>
