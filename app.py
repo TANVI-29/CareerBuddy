@@ -7,10 +7,9 @@ from pydantic import BaseModel
 import joblib
 import contractions
 import re
-import requests
 import numpy as np
-from pyngrok import ngrok
 import nest_asyncio
+from sentence_transformers import SentenceTransformer
 
 # ----------------- Fix asyncio for Colab -----------------
 nest_asyncio.apply()
@@ -41,21 +40,14 @@ pipeline = joblib.load("career_pipeline.pkl")
 label_encoder = joblib.load("label_encoder.pkl")
 career_desc = joblib.load("career_desc.pkl")
 
-# ----------------- API-based embeddings -----------------
-EMBED_API = "https://api.sentence-transformers.org/embeddings"
-API_KEY = "YOUR_API_KEY_HERE"  # Get free API key from SentenceTransformers or OpenAI
+# ----------------- Local Embedding Model -----------------
+embedder = SentenceTransformer("all-MiniLM-L6-v2")  # small, fast, no API key
 
 def embed_text(text_list):
     """
-    Sends text to embeddings API and returns numpy embeddings.
+    Generate embeddings locally using SentenceTransformer
     """
-    response = requests.post(
-        EMBED_API,
-        headers={"Authorization": f"Bearer {API_KEY}"},
-        json={"texts": text_list}
-    )
-    response.raise_for_status()
-    embeddings = np.array(response.json()["embeddings"])
+    embeddings = embedder.encode(text_list, convert_to_numpy=True)
     return embeddings
 
 # ----------------- FastAPI Setup -----------------
@@ -89,10 +81,6 @@ def predict_career(interest: Interest):
     career_name = label_encoder.inverse_transform([pred_label])[0]
     description = career_desc.get(career_name, "No description available.")
     return {"career": career_name, "description": description}
-
-# ----------------- Start ngrok tunnel -----------------
-public_url = ngrok.connect(8000)
-print("Public URL:", public_url)
 
 # ----------------- Run FastAPI -----------------
 if __name__ == "__main__":
