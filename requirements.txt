@@ -7,6 +7,6 @@ transformers
 contractions
 jinja2
 python-multipart
-sklearn
+scikit-learn
 pandas 
 numpy
