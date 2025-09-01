@@ -5,13 +5,12 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
-import torch
-from transformers import AutoTokenizer, AutoModel
 import contractions
 import re
+import requests
+import numpy as np
 from pyngrok import ngrok
 import nest_asyncio
-import gc
 
 # ----------------- Fix asyncio for Colab -----------------
 nest_asyncio.apply()
@@ -42,25 +41,21 @@ pipeline = joblib.load("career_pipeline.pkl")
 label_encoder = joblib.load("label_encoder.pkl")
 career_desc = joblib.load("career_desc.pkl")
 
-# ----------------- Lazy-load transformer for embeddings -----------------
-tokenizer = None
-model = None
-
-def get_transformer():
-    global tokenizer, model
-    if tokenizer is None or model is None:
-        tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-        model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-        model.eval()  # inference mode
-    return tokenizer, model
+# ----------------- API-based embeddings -----------------
+EMBED_API = "https://api.sentence-transformers.org/embeddings"
+API_KEY = "YOUR_API_KEY_HERE"  # Get free API key from SentenceTransformers or OpenAI
 
 def embed_text(text_list):
-    tokenizer, model = get_transformer()
-    inputs = tokenizer(text_list, padding=True, truncation=True, return_tensors="pt")
-    with torch.no_grad():
-        embeddings = model(**inputs).last_hidden_state[:, 0, :].cpu().numpy()
-    del inputs
-    gc.collect()  # free memory
+    """
+    Sends text to embeddings API and returns numpy embeddings.
+    """
+    response = requests.post(
+        EMBED_API,
+        headers={"Authorization": f"Bearer {API_KEY}"},
+        json={"texts": text_list}
+    )
+    response.raise_for_status()
+    embeddings = np.array(response.json()["embeddings"])
     return embeddings
 
 # ----------------- FastAPI Setup -----------------
@@ -74,7 +69,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="templates")  # Place your new2.html here
 
 # Input model
 class Interest(BaseModel):
@@ -93,8 +88,6 @@ def predict_career(interest: Interest):
     pred_label = pipeline.predict(embedding)[0]
     career_name = label_encoder.inverse_transform([pred_label])[0]
     description = career_desc.get(career_name, "No description available.")
-    del embedding
-    gc.collect()
     return {"career": career_name, "description": description}
 
 # ----------------- Start ngrok tunnel -----------------
