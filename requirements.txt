@@ -1,12 +1,9 @@
 fastapi
 uvicorn
-jinja2
 pydantic
 joblib
-contractions
-regex
-sentence-transformers
 torch
-scikit-learn
-numpy
-pandas
+transformers
+contractions
+jinja2
+python-multipart
