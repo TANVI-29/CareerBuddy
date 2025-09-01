@@ -11,6 +11,7 @@ import contractions
 import re
 from pyngrok import ngrok
 import nest_asyncio
+import gc
 
 # ----------------- Fix asyncio for Colab -----------------
 nest_asyncio.apply()
@@ -36,25 +37,36 @@ def preprocess_text(text):
     words = [abbrev_dict.get(w, w) for w in text.split()]
     return " ".join(words)
 
-# ----------------- Load Models -----------------
-pipeline = joblib.load("career_pipeline.pkl")       # Your trained classifier
-label_encoder = joblib.load("label_encoder.pkl")    # LabelEncoder
-career_desc = joblib.load("career_desc.pkl")        # Career description dict
+# ----------------- Load lightweight models -----------------
+pipeline = joblib.load("career_pipeline.pkl")
+label_encoder = joblib.load("label_encoder.pkl")
+career_desc = joblib.load("career_desc.pkl")
 
-# Transformer model for embeddings
-tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2").to("cpu")
+# ----------------- Lazy-load transformer for embeddings -----------------
+tokenizer = None
+model = None
+
+def get_transformer():
+    global tokenizer, model
+    if tokenizer is None or model is None:
+        tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
+        model = AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
+        model.eval()  # inference mode
+    return tokenizer, model
 
 def embed_text(text_list):
+    tokenizer, model = get_transformer()
     inputs = tokenizer(text_list, padding=True, truncation=True, return_tensors="pt")
     with torch.no_grad():
-        embeddings = model(**inputs).last_hidden_state[:,0,:]
-    return embeddings.cpu().numpy()
+        embeddings = model(**inputs).last_hidden_state[:, 0, :].cpu().numpy()
+    del inputs
+    gc.collect()  # free memory
+    return embeddings
 
 # ----------------- FastAPI Setup -----------------
 app = FastAPI(title="AI Career Counselor")
 
-# Enable CORS (useful if frontend is separate)
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -62,7 +74,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-templates = Jinja2Templates(directory="templates")  # put your new2.html here
+templates = Jinja2Templates(directory="templates")
 
 # Input model
 class Interest(BaseModel):
@@ -81,6 +93,8 @@ def predict_career(interest: Interest):
     pred_label = pipeline.predict(embedding)[0]
     career_name = label_encoder.inverse_transform([pred_label])[0]
     description = career_desc.get(career_name, "No description available.")
+    del embedding
+    gc.collect()
     return {"career": career_name, "description": description}
 
 # ----------------- Start ngrok tunnel -----------------
