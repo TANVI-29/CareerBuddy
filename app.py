@@ -5,14 +5,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
-import contractions
 import re
-import numpy as np
-import nest_asyncio
-from sentence_transformers import SentenceTransformer
-
-# ----------------- Fix asyncio for Colab -----------------
-nest_asyncio.apply()
+import contractions
 
 # ----------------- Preprocessing -----------------
 abbrev_dict = {
@@ -26,34 +20,24 @@ abbrev_dict = {
     "maths": "mathematics"
 }
 
-def preprocess_text(text):
-    if text is None:
+def preprocess_text(text: str) -> str:
+    """Clean and normalize user text input"""
+    if not text:
         return ""
-    text = contractions.fix(text)
-    text = text.lower()
-    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    text = contractions.fix(text).lower()
+    text = re.sub(r'[^a-z0-9\s]', '', text)
     words = [abbrev_dict.get(w, w) for w in text.split()]
     return " ".join(words)
 
-# ----------------- Load lightweight models -----------------
+# ----------------- Load Models -----------------
 pipeline = joblib.load("career_pipeline.pkl")
 label_encoder = joblib.load("label_encoder.pkl")
 career_desc = joblib.load("career_desc.pkl")
 
-# ----------------- Local Embedding Model -----------------
-embedder = SentenceTransformer("all-MiniLM-L6-v2")  # small, fast, no API key
-
-def embed_text(text_list):
-    """
-    Generate embeddings locally using SentenceTransformer
-    """
-    embeddings = embedder.encode(text_list, convert_to_numpy=True)
-    return embeddings
-
 # ----------------- FastAPI Setup -----------------
 app = FastAPI(title="AI Career Counselor")
 
-# Enable CORS
+# Enable CORS (important for frontend integration)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -61,28 +45,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-templates = Jinja2Templates(directory="templates")  # Place your new2.html here
+# Templates folder
+templates = Jinja2Templates(directory="templates")
 
 # Input model
 class Interest(BaseModel):
     text: str
 
-# Serve HTML page
+# ----------------- Routes -----------------
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("new2.html", {"request": request})
 
-# Predict career API
 @app.post("/predict")
 def predict_career(interest: Interest):
     user_text = preprocess_text(interest.text)
-    embedding = embed_text([user_text])
-    pred_label = pipeline.predict(embedding)[0]
+    pred_label = pipeline.predict([user_text])[0]
     career_name = label_encoder.inverse_transform([pred_label])[0]
     description = career_desc.get(career_name, "No description available.")
     return {"career": career_name, "description": description}
 
-# ----------------- Run FastAPI -----------------
+# ----------------- Run App -----------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
