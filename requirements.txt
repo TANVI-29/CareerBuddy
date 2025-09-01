@@ -9,7 +9,8 @@ jinja2
 python-multipart
 scikit-learn
 pandas 
-numpy
+numpy<2
+
 # Force lightweight CPU torch
 torch==2.2.0+cpu
 -f https://download.pytorch.org/whl/torch_stable.html
