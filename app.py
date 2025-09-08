@@ -69,15 +69,43 @@ def home(request: Request):
     return templates.TemplateResponse("new2.html", {"request": request})
 
 # Predict career API
+# @app.post("/predict")
+# def predict_career(interest: Interest):
+#     user_text = preprocess_text(interest.text)
+#     embedding = embed_text([user_text])
+#     pred_label = pipeline.predict(embedding)[0]
+#     career_name = label_encoder.inverse_transform([pred_label])[0]
+#     description = career_desc.get(career_name, "No description available.")
+#     return {"career": career_name, "description": description}
+
+
 @app.post("/predict")
 def predict_career(interest: Interest):
     user_text = preprocess_text(interest.text)
     embedding = embed_text([user_text])
-    pred_label = pipeline.predict(embedding)[0]
-    career_name = label_encoder.inverse_transform([pred_label])[0]
-    description = career_desc.get(career_name, "No description available.")
-    return {"career": career_name, "description": description}
-# ----------------- Run Uvicorn -----------------
+
+    # Get prediction probabilities
+    probs = pipeline.predict_proba(embedding)[0]
+
+    # Sort classes by probability
+    top_indices = probs.argsort()[-3:][::-1]   # 👈 top 3
+    top_careers = []
+    for idx in top_indices:
+        career_name = label_encoder.inverse_transform([idx])[0]
+        description = career_desc.get(career_name, "No description available.")
+        top_careers.append({
+            "career": career_name,
+            "description": description
+        })
+
+    # Use the first recommendation's description as "Next Steps"
+    next_steps = top_careers[0]["description"] if top_careers else "No next steps available."
+
+    return {
+        "recommendations": top_careers,
+        "next_steps": next_steps
+    }
+# # ----------------- Run Uvicorn -----------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
