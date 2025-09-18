@@ -32,7 +32,7 @@ def preprocess_text(text):
     return " ".join(words)
 
 # ----------------- Load Models -----------------
-pipeline = joblib.load("career_pipeline (2).pkl")       # Your trained classifier
+pipeline = joblib.load("career_pipeline.pkl")       # Your trained classifier
 label_encoder = joblib.load("label_encoder (4).pkl")    # LabelEncoder
 career_desc = joblib.load("career_desc (2).pkl")        # Career description dict
 
