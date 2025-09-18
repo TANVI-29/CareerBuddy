@@ -1,2 +1,2 @@
 ## 🔗 Project Link
-[Click here to view the live project](https://diligent-adventure-production.up.railway.app/)
+[Click here to view the live project](https://careerbuddy-production.up.railway.app/)
